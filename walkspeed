@@ -1,0 +1,22 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local speed = 50
+
+local function apply()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = speed
+    end
+end
+
+apply()
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.1)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = speed
+    end
+end)
