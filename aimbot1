@@ -1,0 +1,81 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local Config = {
+    AimAssist = true,
+    FOV = 180,
+    AimSpeed = 25,
+    AimPart = "Head",
+}
+
+local function IsEnemy(player)
+    if player == LocalPlayer then return false end
+    if LocalPlayer.Team ~= nil and player.Team ~= nil and LocalPlayer.Team == player.Team then
+        return false
+    end
+    return true
+end
+
+local function GetAimPart(character)
+    if not character then return nil end
+    return character:FindFirstChild(Config.AimPart) or character:FindFirstChild("HumanoidRootPart")
+end
+
+local function FindTarget()
+    local Camera = workspace.CurrentCamera
+    if not Camera then return nil end
+    local mouse = UserInputService:GetMouseLocation()
+    local closest = nil
+    local closestDistance = Config.FOV
+    for _, player in ipairs(Players:GetPlayers()) do
+        if IsEnemy(player) then
+            local character = player.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            local part = GetAimPart(character)
+            if humanoid and humanoid.Health > 0 and part then
+                local screen, visible = Camera:WorldToViewportPoint(part.Position)
+                if visible and screen.Z > 0 then
+                    local distance = (Vector2.new(screen.X, screen.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closest = part
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local CurrentTarget = nil
+
+RunService.RenderStepped:Connect(function(dt)
+    local Camera = workspace.CurrentCamera
+    if not Camera then return end
+    if not Config.AimAssist then
+        CurrentTarget = nil
+        return
+    end
+    if not CurrentTarget or not CurrentTarget.Parent then
+        CurrentTarget = FindTarget()
+    end
+    if not CurrentTarget then return end
+    local character = CurrentTarget.Parent
+    local player = Players:GetPlayerFromCharacter(character)
+    if not player or not IsEnemy(player) then CurrentTarget = nil; return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then CurrentTarget = nil; return end
+    local screen, visible = Camera:WorldToViewportPoint(CurrentTarget.Position)
+    if not visible then CurrentTarget = nil; return end
+    local mouse = UserInputService:GetMouseLocation()
+    local distance = (Vector2.new(screen.X, screen.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
+    if distance > Config.FOV then
+        CurrentTarget = FindTarget()
+        return
+    end
+    local desired = CFrame.lookAt(Camera.CFrame.Position, CurrentTarget.Position)
+    local alpha = 1 - math.exp(-Config.AimSpeed * dt)
+    Camera.CFrame = Camera.CFrame:Lerp(desired, alpha)
+end)
